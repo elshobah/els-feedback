@@ -61,16 +61,11 @@ services:
       # default, so BOTH must be listed.
       - default
       - dokploy-network
-    labels:
-      traefik.enable: 'true'
-      traefik.docker.network: dokploy-network
-      traefik.http.services.quackback.loadbalancer.server.port: '3000'
-      # Router rule must match BASE_URL in .env.
-      traefik.http.routers.quackback.rule: Host(`feedback.zidcloud.com`)
-      traefik.http.routers.quackback.entrypoints: websecure
-      traefik.http.routers.quackback.tls: 'true'
-      # Verify this resolver name matches the one your Dokploy Traefik defines.
-      traefik.http.routers.quackback.tls.certresolver: letsencrypt
+    # No Traefik labels here on purpose: the domain is managed in the Dokploy UI
+    # (Domains tab), which generates the router/TLS labels for this service on
+    # deploy. Adding labels here too would create a second router on the same
+    # Host rule. Settings to use there: Service = app, Container Port = 3000,
+    # Path = /, HTTPS = on.
     depends_on:
       postgres:
         condition: service_healthy
