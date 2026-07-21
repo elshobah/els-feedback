@@ -49,8 +49,28 @@ services:
       #   S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY   (R2 API token)
       #   S3_FORCE_PATH_STYLE=true
       # Optional: S3_PUBLIC_URL (R2 custom domain), S3_PROXY (see .env.prod.example).
-    ports:
-      - '${APP_PORT:-3000}:3000'
+    # Behind Traefik (Dokploy): do NOT publish a host port. The host's port 3000
+    # is already taken by the Dokploy dashboard, and Quackback must not be
+    # exposed directly anyway. `expose` keeps 3000 reachable only inside the
+    # Docker networks, where Traefik reaches it.
+    expose:
+      - '3000'
+    networks:
+      # `default` keeps postgres/dragonfly reachable; `dokploy-network` is what
+      # Traefik is attached to. Naming any network here disables the implicit
+      # default, so BOTH must be listed.
+      - default
+      - dokploy-network
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dokploy-network
+      traefik.http.services.quackback.loadbalancer.server.port: '3000'
+      # Router rule must match BASE_URL in .env.
+      traefik.http.routers.quackback.rule: Host(`feedback.zidcloud.com`)
+      traefik.http.routers.quackback.entrypoints: websecure
+      traefik.http.routers.quackback.tls: 'true'
+      # Verify this resolver name matches the one your Dokploy Traefik defines.
+      traefik.http.routers.quackback.tls.certresolver: letsencrypt
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,6 +133,12 @@ services:
   # Object storage is Cloudflare R2 (external) — no MinIO service here.
   # Create the bucket and an R2 API token in the Cloudflare dashboard, then
   # point the S3_* variables in .env at them.
+
+networks:
+  # Created by Dokploy on the host; Traefik is already attached to it. Declared
+  # external so Compose joins the existing network instead of making its own.
+  dokploy-network:
+    external: true
 
 volumes:
   postgres_data:
